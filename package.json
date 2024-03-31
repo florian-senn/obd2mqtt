@@ -6,6 +6,7 @@
   "author": "Florian  Senn",
   "license": "MIT",
   "dependencies": {
+    "@influxdata/influxdb-client": "^1.33.2",
     "@types/node": "^20.12.2",
     "bluetooth-serial-port": "^3.0.2",
     "dotenv": "^16.4.5",

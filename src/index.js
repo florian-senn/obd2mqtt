@@ -1,11 +1,16 @@
 require('dotenv').config()
 const mqtt = require("mqtt")
-var bt = new (require("bluetooth-serial-port").BluetoothSerialPort)();
+const bt = new (require("bluetooth-serial-port").BluetoothSerialPort)();
+const { InfluxDB, Point } = require("@influxdata/influxdb-client")
+
+const idb = new InfluxDB({ url: process.env.idb_url, token: process.env.idb_token })
+const idbWriteApi = idb.getWriteApi(process.env.idb_org, process.env.idb_bucket)
+idbWriteApi.defaultTags({[process.env.idb_default_tag_name]: process.env.idb_default_tag_content})
 
 let mqttOptions = {
     username: process.env.mqtt_username,
     password: process.env.mqtt_password,
-    port: process.env.mqtt_port
+    port: process.env.mqtt_port,
 }
 
 const timer = ms => new Promise(res => setTimeout(res, ms))
@@ -26,24 +31,25 @@ mqttClient.on('connect', () => {
         console.log("MQTT: ", topic, message.toString())
     })
 })
+
 const initCMD = [
-    'ATD', 'ATZ', 'ATE0', 'ATL0', 'ATS0', 'ATH1', 'ATAT0', 'ATSTFF', 'ATFE', 'ATSP6', 'ATCRA7EC'
+    'AT D', 'AT Z', 'AT E0', 'AT L0', 'AT S0', 'AT H1', 'AT AT0', 'AT STFF', 'AT FE', 'AT SP6', 'AT CRA7EC'
 ]
 
 function writeBt(message) {
     console.log("bt write: " + message)
-    bt.write(Buffer.from(message + '\r'), (error) => console.log(error))
+    bt.write(Buffer.from(message + '\r\n'), (error) => console.log(error))
 }
 function btLoop() {
-    bt.connect('E1:FF:F1:4E:6D:D8', 1, async () => {
+    bt.connect(process.env.bt_mac, 1, async () => {
         console.log("bt connected")
         bt.on("data", (buffer) => {
             const ascii = buffer.toString('ascii')
             console.log(ascii)
         })
 
-        for (let i = 0; i < initCMD.length; i++) {
-            writeBt(initCMD[i])
+        for (const element of initCMD) {
+            writeBt(element)
             await timer(500)
         }
 
@@ -54,33 +60,20 @@ function btLoop() {
     }, (error) => { console.log(error); btLoop() })
 }
 
-const command = "220105"
-const data =
-    "7EC103E620101EFFBE7" +
-    "7EC21EF700000000000" +
-    "7EC22000013BE100F0F" +
-    "7EC231010100F0035BF" +
-    "7EC240DBF3900007C00" +
-    "7EC25016C0D000167D7" +
-    "7EC260000BC060000B0" +
-    "7EC27F6006AC98D0019" +
-    "7EC2899000000000BB8"
-
 parseData(data)
 btLoop()
 
 function parseSigned(data) {
-    var bits = data.length * 4;
+    const bits = data.length * 4;
     return ((parseInt(data, 16) + Math.pow(2, bits - 1)) % Math.pow(2, bits)) - Math.pow(2, bits - 1);
 }
 
 function parseData(data) {
-    var parsedData = {}
-    console.log("parseData")
+    let parsedData = {}
     try {
         if (command === '220105') {
             console.log("parseData command === '220105'")
-            var fourthBlock = '7EC24',
+            const fourthBlock = '7EC24',
                 fifthBlock = '7EC25',
                 extractedFourthBlock = data.substring(data.indexOf(fourthBlock), data.indexOf(fifthBlock)),
                 extractedFourthData = extractedFourthBlock.replace(fourthBlock, '');
@@ -94,7 +87,7 @@ function parseData(data) {
             }
         } else if (command === '220101') {
             console.log("parseData command === '220101'")
-            var firstBlock = '7EC21',
+            let firstBlock = '7EC21',
                 extractedFirstBlock = ((data.indexOf(firstBlock) !== -1) ? data.substring(data.indexOf(firstBlock), data.indexOf(firstBlock) + 19) : ''),
                 extractedFirstData = extractedFirstBlock.replace(firstBlock, ''),
                 secondBlock = '7EC22',
