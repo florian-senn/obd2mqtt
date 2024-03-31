@@ -1,0 +1,21 @@
+{
+  "name": "obd2mqtt",
+  "version": "0.0.1",
+  "description": "obd2 -> mqtt",
+  "main": "./src/index.js",
+  "author": "Florian  Senn",
+  "license": "MIT",
+  "dependencies": {
+    "@types/node": "^20.12.2",
+    "bluetooth-serial-port": "^3.0.2",
+    "dotenv": "^16.4.5",
+    "mqtt": "^5.5.0",
+    "typescript": "^5.4.3"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2"
+  },
+  "scripts": {
+    "start": "node ./src/index.js"
+  }
+}
